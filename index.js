@@ -120,12 +120,39 @@ async function sendGeneralMotivation() {
     } catch (err) { console.error(err); }
 }
 
+async function sendWakeUpMessage(interaction, mention) {
+    try {
+        const quote = await getQuote("Một câu động lực ngắn gọn (dưới 20 từ), mang tính thúc giục đi học/làm việc ngay lập tức.");
+
+        // Format message
+        const message = `${mention} đã được ai đó đánh thức. Hãy vào học cùng mọi người nhé.\n\n> *"${quote}"*`;
+
+        // Gửi tin nhắn vào kênh General cố định
+        const channel = await client.channels.fetch(GENERAL_CHANNEL_ID);
+        if (channel) {
+            await channel.send({ content: message, allowedMentions: { parse: ['users', 'roles', 'everyone'] } });
+            await interaction.editReply({ content: `✅ Đã gửi lời đánh thức đến ${channel.toString()}!` });
+        } else {
+            await interaction.editReply({ content: `❌ Không tìm thấy kênh General (${GENERAL_CHANNEL_ID})` });
+        }
+    } catch (error) {
+        console.error("Lỗi gửi tin nhắn push:", error);
+        await interaction.editReply({ content: `❌ Có lỗi xảy ra khi gửi tin nhắn: ${error.message}` });
+    }
+}
+
 // --- SLASH COMMANDS REGISTRATION ---
 
 async function registerCommands() {
     const commands = [
         new SlashCommandBuilder().setName('demnguoc').setDescription('Xem thời gian còn lại đến kỳ thi THPTQG 2026'),
         new SlashCommandBuilder().setName('dongluc').setDescription('Nhận ngay một câu động lực ngẫu nhiên'),
+        new SlashCommandBuilder()
+            .setName('push')
+            .setDescription('Đánh thức ai đó vào học')
+            .addMentionableOption(option => option.setName('target').setDescription('Người hoặc nhóm muốn đánh thức'))
+            .addBooleanOption(option => option.setName('everyone').setDescription('Đánh thức tất cả mọi người (cẩn thận!)')),
+        new SlashCommandBuilder().setName('pushall').setDescription('Đánh thức tất cả mọi người ngay lập tức!'),
     ].map(command => command.toJSON());
 
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -185,6 +212,31 @@ client.on('interactionCreate', async interaction => {
             .setDescription(quote);
 
         await interaction.editReply({ embeds: [embed] });
+    }
+
+    if (interaction.commandName === 'push') {
+        // Trả lời ephemeral (chỉ người dùng lệnh mới thấy) để bảo mật "ai đó"
+        await interaction.deferReply({ ephemeral: true });
+
+        const target = interaction.options.getMentionable('target');
+        const isEveryone = interaction.options.getBoolean('everyone');
+
+        let mention = '';
+        if (isEveryone) {
+            mention = '@everyone';
+        } else if (target) {
+            mention = target.toString();
+        } else {
+            await interaction.editReply({ content: '⚠️ Bạn cần chọn người/nhóm hoặc chọn chế độ Everyone!' });
+            return;
+        }
+
+        await sendWakeUpMessage(interaction, mention);
+    }
+
+    if (interaction.commandName === 'pushall') {
+        await interaction.deferReply({ ephemeral: true });
+        await sendWakeUpMessage(interaction, '@everyone');
     }
 });
 
