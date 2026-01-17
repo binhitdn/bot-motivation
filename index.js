@@ -132,8 +132,16 @@ async function registerCommands() {
 
     try {
         console.log('Đang đăng ký lệnh Slash...');
-        await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-        console.log('✅ Đăng ký lệnh thành công!');
+
+        if (process.env.GUILD_ID) {
+            // Đăng ký cho riêng Server này (Cập nhật ngay lập tức)
+            await rest.put(Routes.applicationGuildCommands(client.user.id, process.env.GUILD_ID), { body: commands });
+            console.log(`✅ Đăng ký lệnh thành công cho Guild: ${process.env.GUILD_ID}`);
+        } else {
+            // Đăng ký Global (Mất ~1 tiếng để update cache Discord)
+            await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+            console.log('✅ Đăng ký lệnh Global thành công (Lưu ý: Có thể mất 1h để hiển thị)!');
+        }
     } catch (error) {
         console.error('Lỗi đăng ký lệnh:', error);
     }
